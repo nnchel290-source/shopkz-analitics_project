@@ -1,0 +1,137 @@
+CREATE TABLE categories (
+    category_id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL
+);
+
+CREATE TABLE products (
+    product_id SERIAL PRIMARY KEY,
+    category_id INTEGER REFERENCES categories(category_id) ON DELETE SET NULL,
+    name VARCHAR(255) NOT NULL,
+    price NUMERIC(10, 2) NOT NULL CHECK (price >= 0)
+);
+
+CREATE TABLE sales (
+    sale_id SERIAL PRIMARY KEY,
+    product_id INTEGER REFERENCES products(product_id) ON DELETE CASCADE,
+    sale_date TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    quantity INTEGER NOT NULL CHECK (quantity > 0),
+    total_amount NUMERIC(10, 2) NOT NULL
+);
+
+DO $$
+DECLARE
+    i INT;
+    random_product_id INT;
+    random_qty INT;
+    product_price NUMERIC;
+BEGIN
+    FOR i IN 1..10000 LOOP
+        random_product_id := floor(random() * 9 + 1)::int;
+        random_qty := floor(random() * 5 + 1)::int;
+        SELECT price INTO product_price FROM products WHERE product_id = random_product_id;
+
+        INSERT INTO sales (product_id, sale_date, quantity, total_amount)
+        VALUES (
+            random_product_id,
+            timestamp '2023-01-01' + random() * (timestamp '2024-04-01' - timestamp '2023-01-01'),
+            random_qty,
+            random_qty * product_price
+        );
+    END LOOP;
+END $$;
+
+INSERT INTO categories (name) VALUES
+('Электроника'), ('Одежда'), ('Дом и уют'), ('Книги');
+
+INSERT INTO products (category_id, name, price) VALUES
+(1, 'Ноутбук ThinkPad', 450000.00),
+(1, 'Смартфон Galaxy', 320000.00),
+(1, 'Наушники Sony', 85000.00),
+(2, 'Футболка базовая', 5000.00),
+(2, 'Джинсы классические', 18000.00),
+(3, 'Кружка керамическая', 2500.00),
+(3, 'Офисное кресло', 45000.00),
+(4, 'Книга: Изучаем Python', 6000.00),
+(4, 'Книга: Грокаем алгоритмы', 5500.00);
+
+SELECT name FROM categories;
+SELECT * FROM products ORDER BY price DESC LIMIT 1;
+SELECT * FROM products ORDER BY price ASC LIMIT 1;
+SELECT * FROM products WHERE price > 50000;
+SELECT * FROM sales ORDER BY sale_date ASC LIMIT 10;
+SELECT * FROM sales WHERE quantity > 3;
+SELECT * FROM sales WHERE total_amount > 100000;
+SELECT * FROM products WHERE name LIKE '%Книга%';
+SELECT * FROM sales WHERE sale_date::date = '2023-05-15';
+SELECT COUNT(*) AS category_count FROM categories;
+SELECT COUNT(*) AS product_count FROM products;
+SELECT ROUND(AVG(price), 2) AS avg_price FROM products;
+SELECT SUM(total_amount) AS total_revenue FROM sales;
+SELECT MAX(total_amount) AS max_check FROM sales;
+SELECT MIN(total_amount) AS min_check FROM sales;
+SELECT SUM(quantity) AS total_units_sold FROM sales;
+SELECT product_id, COUNT(*) AS sales_count
+FROM sales
+GROUP BY product_id
+ORDER BY sales_count DESC;
+SELECT product_id, SUM(total_amount) AS revenue
+FROM sales
+GROUP BY product_id
+ORDER BY revenue DESC;
+SELECT product_id, SUM(total_amount) AS revenue
+FROM sales
+GROUP BY product_id
+HAVING SUM(total_amount) > 1000000;
+SELECT sale_date::date AS day, COUNT(*) AS sales_count
+FROM sales
+GROUP BY day
+ORDER BY day;
+SELECT sale_date::date AS day, SUM(total_amount) AS revenue
+FROM sales
+GROUP BY day
+ORDER BY revenue DESC
+LIMIT 1;
+SELECT p.name AS product_name, c.name AS category_name
+FROM products p
+JOIN categories c ON p.category_id = c.category_id;
+SELECT s.sale_id, p.name AS product_name, s.sale_date, s.quantity, s.total_amount
+FROM sales s
+JOIN products p ON s.product_id = p.product_id;
+SELECT c.name AS category, SUM(s.total_amount) AS revenue
+FROM sales s
+JOIN products p ON s.product_id = p.product_id
+JOIN categories c ON p.category_id = c.category_id
+GROUP BY c.name
+ORDER BY revenue DESC;
+SELECT c.name AS category, ROUND(AVG(s.total_amount), 2) AS avg_check
+FROM sales s
+JOIN products p ON s.product_id = p.product_id
+JOIN categories c ON p.category_id = c.category_id
+GROUP BY c.name
+ORDER BY avg_check DESC
+LIMIT 1;
+SELECT
+    s.sale_date AS date,
+    p.name AS product_name,
+    c.name AS category,
+    s.total_amount AS amount
+FROM sales s
+JOIN products p ON s.product_id = p.product_id
+JOIN categories c ON p.category_id = c.category_id
+ORDER BY s.sale_date;
+SELECT p.name AS product_name
+FROM products p
+LEFT JOIN sales s ON p.product_id = s.product_id
+WHERE s.sale_id IS NULL;
+SELECT * FROM products
+WHERE price > (SELECT AVG(price) FROM products);
+SELECT
+    p.name AS product_name,
+    c.name AS category,
+    SUM(s.total_amount) AS revenue
+FROM sales s
+JOIN products p ON s.product_id = p.product_id
+JOIN categories c ON p.category_id = c.category_id
+GROUP BY p.name, c.name
+ORDER BY revenue DESC
+LIMIT 3;
